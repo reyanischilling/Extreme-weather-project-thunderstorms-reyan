@@ -12,6 +12,7 @@ interface HeroProps {
 
 export default function Hero({ title, subtitle, backgroundVideo, backgroundImage, onScrollClick }: HeroProps) {
   const [scrollY, setScrollY] = useState(0);
+  const [autoplayFailed, setAutoplayFailed] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -23,29 +24,63 @@ export default function Hero({ title, subtitle, backgroundVideo, backgroundImage
   }, []);
 
   useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.play().catch(err => console.log("Video autoplay failed:", err));
+    const video = videoRef.current;
+    if (video) {
+      video.muted = true; // Explicitly set muted
+      video.play().catch(err => {
+        console.error("Video autoplay failed:", err);
+        setAutoplayFailed(true);
+
+        // Allow a user interaction to try again
+        const handleInteraction = () => {
+          video.play()
+            .then(() => setAutoplayFailed(false))
+            .catch(e => console.error(e));
+          document.removeEventListener('click', handleInteraction);
+        };
+        document.addEventListener('click', handleInteraction);
+      });
     }
   }, []);
 
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
       {backgroundVideo ? (
-        <video
-          ref={videoRef}
-          className="absolute inset-0 w-full h-full object-cover"
-          style={{
-            transform: `translateY(${scrollY * 0.3}px)`,
-            willChange: 'transform',
-          }}
-          autoPlay
-          loop
-          muted
-          playsInline
-          preload="auto"
-        >
-          <source src={backgroundVideo} type="video/mp4" />
-        </video>
+        <>
+          <video
+            ref={videoRef}
+            className="absolute inset-0 w-full h-full object-cover"
+            style={{
+              transform: `translateY(${scrollY * 0.3}px)`,
+              willChange: 'transform',
+            }}
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="auto"
+          >
+            <source src={backgroundVideo} type="video/mp4" />
+          </video>
+
+          {autoplayFailed && (
+            <div className="absolute inset-0 z-20 flex items-center justify-center">
+              <button
+                aria-label="Play background video"
+                onClick={() => {
+                  const v = videoRef.current;
+                  if (v) {
+                    v.muted = false;
+                    v.play().then(() => setAutoplayFailed(false)).catch(console.error);
+                  }
+                }}
+                className="rounded-full bg-white/80 p-6 shadow-lg"
+              >
+                ▶
+              </button>
+            </div>
+          )}
+        </>
       ) : (
         <div 
           className="absolute inset-0 bg-cover bg-center"
